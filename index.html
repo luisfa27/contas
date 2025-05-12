@@ -1,0 +1,229 @@
+Aqui está um exemplo de uma aplicação React (em um único arquivo `App.jsx`) que atende aos seus requisitos:
+
+- Tabela de gastos mensais
+- Adição de novos itens com data, valor e quem pagou
+- Agrupamento por mês
+- Cálculo do total, valor dividido e diferença entre as contribuições de Paula e Luís
+
+```jsx
+import { useState, useEffect } from 'react';
+
+export default function App() {
+  const [descricao, setDescricao] = useState('');
+  const [valor, setValor] = useState('');
+  const [pagador, setPagador] = useState('Paula');
+  const [data, setData] = useState(new Date().toISOString().split('T')[0]);
+  const [gastos, setGastos] = useState([]);
+
+  // Carregar dados do localStorage ao iniciar
+  useEffect(() => {
+    const saved = localStorage.getItem('gastos');
+    if (saved) {
+      try {
+        setGastos(JSON.parse(saved));
+      } catch (e) {
+        console.error("Erro ao carregar dados");
+      }
+    }
+  }, []);
+
+  // Salvar dados no localStorage sempre que mudar
+  useEffect(() => {
+    localStorage.setItem('gastos', JSON.stringify(gastos));
+  }, [gastos]);
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    if (!descricao || !valor || isNaN(valor) || parseFloat(valor) <= 0) return;
+
+    const novoGasto = {
+      descricao,
+      valor: parseFloat(valor),
+      pagador,
+      data,
+    };
+
+    setGastos([...gastos, novoGasto]);
+    setDescricao('');
+    setValor('');
+    setPagador('Paula');
+    setData(new Date().toISOString().split('T')[0]);
+  };
+
+  const calcularTotaisPorMes = () => {
+    const totais = {};
+
+    gastos.forEach(gasto => {
+      const mesAno = new Date(gasto.data).toLocaleString('default', { month: 'long', year: 'numeric' });
+      if (!totais[mesAno]) {
+        totais[mesAno] = { Paula: 0, Luís: 0 };
+      }
+      totais[mesAno][gasto.pagador] += gasto.valor;
+    });
+
+    return Object.entries(totais).map(([mes, valores]) => ({
+      mes,
+      paula: valores.Paula,
+      luis: valores.Luís,
+      total: valores.Paula + valores.Luís,
+      dividido: (valores.Paula + valores.Luís) / 2,
+      diferencaPaula: valores.Paula - (valores.Paula + valores.Luís) / 2,
+      diferencaLuis: valores.Luís - (valores.Paula + valores.Luís) / 2,
+    }));
+  };
+
+  const agrupados = calcularTotaisPorMes();
+
+  return (
+    <div className="min-h-screen bg-gray-100 p-6">
+      <div className="max-w-4xl mx-auto bg-white rounded-lg shadow-md p-6">
+        <h1 className="text-3xl font-bold text-center mb-6">Controle de Gastos Mensais</h1>
+
+        <form onSubmit={handleSubmit} className="mb-8 grid grid-cols-1 md:grid-cols-5 gap-4">
+          <input
+            type="text"
+            placeholder="Descrição"
+            value={descricao}
+            onChange={(e) => setDescricao(e.target.value)}
+            className="p-2 border border-gray-300 rounded"
+            required
+          />
+          <input
+            type="number"
+            placeholder="Valor"
+            min="0.01"
+            step="0.01"
+            value={valor}
+            onChange={(e) => setValor(e.target.value)}
+            className="p-2 border border-gray-300 rounded"
+            required
+          />
+          <select
+            value={pagador}
+            onChange={(e) => setPagador(e.target.value)}
+            className="p-2 border border-gray-300 rounded"
+          >
+            <option value="Paula">Paula</option>
+            <option value="Luís">Luís</option>
+          </select>
+          <input
+            type="date"
+            value={data}
+            onChange={(e) => setData(e.target.value)}
+            className="p-2 border border-gray-300 rounded"
+          />
+          <button
+            type="submit"
+            className="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded transition duration-200"
+          >
+            Adicionar
+          </button>
+        </form>
+
+        <div className="overflow-x-auto">
+          <table className="w-full table-auto text-left">
+            <thead>
+              <tr className="bg-gray-200 text-gray-700">
+                <th className="px-4 py-2">Mês</th>
+                <th className="px-4 py-2">Total</th>
+                <th className="px-4 py-2">Pago por Paula</th>
+                <th className="px-4 py-2">Pago por Luís</th>
+                <th className="px-4 py-2">Dividido</th>
+                <th className="px-4 py-2">Diferença Paula</th>
+                <th className="px-4 py-2">Diferença Luís</th>
+              </tr>
+            </thead>
+            <tbody>
+              {agrupados.length === 0 ? (
+                <tr>
+                  <td colSpan="7" className="text-center py-4 text-gray-500">Nenhum gasto registrado ainda.</td>
+                </tr>
+              ) : (
+                agrupados.map((item, index) => (
+                  <tr key={index} className="border-t hover:bg-gray-50">
+                    <td className="px-4 py-2">{item.mes}</td>
+                    <td className="px-4 py-2 font-medium">R$ {item.total.toFixed(2)}</td>
+                    <td className="px-4 py-2">R$ {item.paula.toFixed(2)}</td>
+                    <td className="px-4 py-2">R$ {item.luis.toFixed(2)}</td>
+                    <td className="px-4 py-2">R$ {item.dividido.toFixed(2)}</td>
+                    <td className={`px-4 py-2 ${item.diferencaPaula > 0 ? 'text-green-600' : 'text-red-600'}`}>
+                      R$ {item.diferencaPaula.toFixed(2)}
+                    </td>
+                    <td className={`px-4 py-2 ${item.diferencaLuis > 0 ? 'text-green-600' : 'text-red-600'}`}>
+                      R$ {item.diferencaLuis.toFixed(2)}
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+
+        {/* Resumo Final */}
+        {agrupados.length > 0 && (
+          <div className="mt-8 p-4 bg-gray-50 rounded-lg border">
+            <h2 className="text-xl font-semibold mb-2">Resumo Final</h2>
+            <div className="flex flex-col sm:flex-row justify-between gap-4">
+              <div className="flex-1">
+                <p className="font-medium">Total Gasto:</p>
+                <p className="text-lg font-bold">
+                  R${' '}
+                  {agrupados.reduce((acc, item) => acc + item.total, 0).toFixed(2)}
+                </p>
+              </div>
+              <div className="flex-1">
+                <p className="font-medium">Total Pago por Paula:</p>
+                <p className="text-lg font-bold text-green-600">
+                  R${' '}
+                  {agrupados.reduce((acc, item) => acc + item.paula, 0).toFixed(2)}
+                </p>
+              </div>
+              <div className="flex-1">
+                <p className="font-medium">Total Pago por Luís:</p>
+                <p className="text-lg font-bold text-green-600">
+                  R${' '}
+                  {agrupados.reduce((acc, item) => acc + item.luis, 0).toFixed(2)}
+                </p>
+              </div>
+              <div className="flex-1">
+                <p className="font-medium">Quem deve pagar a diferença:</p>
+                {agrupados.reduce((acc, item) => acc + item.paula, 0) >
+                agrupados.reduce((acc, item) => acc + item.luis, 0) ? (
+                  <p className="text-lg font-bold text-red-600">
+                    Luís deve R${' '}
+                    {(agrupados.reduce((acc, item) => acc + item.paula, 0) -
+                      agrupados.reduce((acc, item) => acc + item.luis, 0)).toFixed(2)}
+                  </p>
+                ) : (
+                  <p className="text-lg font-bold text-red-600">
+                    Paula deve R${' '}
+                    {(agrupados.reduce((acc, item) => acc + item.luis, 0) -
+                      agrupados.reduce((acc, item) => acc + item.paula, 0)).toFixed(2)}
+                  </p>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+```
+
+---
+
+### Funcionalidades Incluídas:
+
+✅ Formulário para adicionar novos gastos  
+✅ Armazenamento local (`localStorage`) para persistência dos dados  
+✅ Agrupamento dos gastos por mês  
+✅ Cálculos:
+- Total por mês
+- Valor pago individualmente
+- Valor médio (dividido)
+- Diferença de pagamento em relação à média  
+✅ Design responsivo e moderno com TailwindCSS  
+✅ Feedback visual sobre quem deve quanto ao outro
+
+Este é um sistema simples, porém eficaz, para controle de despesas entre duas pessoas.
